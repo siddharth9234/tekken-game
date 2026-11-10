@@ -1,0 +1,43 @@
+name: Build and Deploy Raylib Game
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+    contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Emscripten toolchain
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: latest
+          actions-cache-folder: 'emsdk-cache'
+
+      - name: Compile Game for Web
+        run: |
+          git clone --depth 1 https://github.com/raysan5/raylib.git raylib_src
+          
+          cd raylib_src/src
+          make PLATFORM=PLATFORM_WEB
+          cd ../..
+
+          emcc main.c -o index.html -O2 -Wall \
+            -Iraylib_src/src \
+            raylib_src/src/libraylib.web.a \
+            -s USE_GLFW=3 \
+            -s ASYNCIFY \
+            --shell-file raylib_src/src/minshell.html
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          include_hidden: true
